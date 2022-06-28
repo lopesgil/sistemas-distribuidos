@@ -14,6 +14,7 @@ class Node(rpyc.Service):
         super().__init__()
 
     def exposed_connect_to_node(self, host, port) -> None:
+        # Armazena as conexões num dicionário indexado pelo identificador do nó
         self.neighbors[port - 5000] = rpyc.connect(host, port=port)
 
     def exposed_get_port(self) -> int:
@@ -34,8 +35,11 @@ class Node(rpyc.Service):
 
     def exposed_echo(self, lowest_identifier) -> None:
         self.to_wait -= 1
+        # atualiza o identificador mais baixo até agora
         if self.lowest_identifier > lowest_identifier:
             self.lowest_identifier = lowest_identifier
+
+        # Se já recebeu todos os echos esperados, passa o echo acima
         if (
             self.status != "election"
             and self.to_wait == 0
@@ -45,6 +49,8 @@ class Node(rpyc.Service):
             self.acks = 0
             self.to_wait = 0
             rpyc.async_(self.parent.root.echo)(self.lowest_identifier)
+
+        # Se também é o nó que iniciou a eleição, exibe o resultado
         if (
             self.status == "election"
             and self.to_wait == 0
@@ -55,9 +61,11 @@ class Node(rpyc.Service):
 
     def exposed_ack(self, will_echo=False) -> None:
         self.acks += 1
+        # Se é nó pai, atualiza o contador de echos esperados
         if will_echo:
             self.to_wait += 1
 
+        # Se não é nó pai e todos os acks foram recebidos, passa o echo acima
         if self.acks == len(self.neighbors) - 1 and self.to_wait == 0:
             self.status = "echo"
             self.acks = 0
@@ -65,6 +73,8 @@ class Node(rpyc.Service):
             rpyc.async_(self.parent.root.echo)(self.lowest_identifier)
 
     def exposed_probe(self, identifier) -> None:
+        # Se ainda não recebeu probe, define o nó pai como o nó que enviou o probe
+        # e passa o probe abaixo
         if self.status == "standby":
             self.status = "probe"
             self.to_wait = 0
@@ -74,12 +84,14 @@ class Node(rpyc.Service):
             for neighbor in self.neighbors.values():
                 if neighbor != self.parent:
                     rpyc.async_(neighbor.root.probe)(self.identifier)
+            # Se só possui o pai de vizinho, passa o echo acima
             if len(self.neighbors) == 1:
                 self.status = "echo"
                 self.acks = 0
                 self.to_wait = 0
                 rpyc.async_(self.parent.root.echo)(self.identifier)
         else:
+            # Caso já tenha recebido probe antes, apenas passa o ack
             rpyc.async_(self.neighbors[identifier].root.ack)()
 
     def exposed_close_connections(self) -> None:
