@@ -24,16 +24,30 @@ def connect_to_nodes():
 
 # Gera as conexões entre os nós
 def make_connections():
-    already_connected = [0, 1]
-    conns[0].root.connect_to_node("localhost", nodes_id[1] + 5000)
-    conns[1].root.connect_to_node("localhost", nodes_id[0] + 5000)
+    remaining = list(range(NUM_OF_NODES))  # índices restantes
+    already_connected = random.sample(range(NUM_OF_NODES), 2)  # índices já conectados
+    conns[already_connected[0]].root.connect_to_node(
+        "localhost", nodes_id[already_connected[1]] + 5000
+    )
+    conns[already_connected[1]].root.connect_to_node(
+        "localhost", nodes_id[already_connected[0]] + 5000
+    )
+    remaining.remove(already_connected[0])
+    remaining.remove(already_connected[1])
 
     # Garante que o grafo obtido seja conexo, usando as conexões já existentes
     # como base para as seguintes
-    for i in range(2, NUM_OF_NODES):
+    for i in remaining:
+        # conecta o nó atual a algum dos que já estão no grafo
         node_to_connect = random.randint(0, len(already_connected) - 1)
-        conns[i].root.connect_to_node("localhost", nodes_id[node_to_connect] + 5000)
-        conns[node_to_connect].root.connect_to_node("localhost", nodes_id[i] + 5000)
+        conns[i].root.connect_to_node(
+            "localhost", nodes_id[already_connected[node_to_connect]] + 5000
+        )
+        conns[already_connected[node_to_connect]].root.connect_to_node(
+            "localhost", nodes_id[i] + 5000
+        )
+        # adiciona o nó atual à lista de já conectados
+        already_connected.append(i)
 
     for i in range(NUM_OF_NODES):
         print(conns[i].root.get_identifier(), conns[i].root.get_neighbors())
