@@ -138,6 +138,12 @@ def connect_to_replica(id):
 def end():
     for proc in procs:
         proc.terminate()
+
+    if len(procs) > 0:
+        print("Todos as réplicas foram encerradas!")
+        print(
+            "Encerre os outros terminais e execute o programa novamente para criar novas réplicas."
+        )
     sys.exit(0)
 
 
